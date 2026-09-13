@@ -22,6 +22,7 @@ void print_freelist() {
 }
 
 void * new_malloc(size_t size) {
+    // freelist 1 time initialization
     if(freelist == NULL) {
         printf("MMAP\n");
          // Use mmap to get anonymous, private memory
@@ -36,11 +37,51 @@ void * new_malloc(size_t size) {
             printf("map failed\n");
             return NULL;
         }
-
-
+        // setting address values
+        freelist->size = 2048 - sizeof(m_header);
+        freelist->prev = NULL;
+        freelist->next = NULL;
+        freelist->in_use = 0;
     }
 
-    return NULL;
+    m_header *curr = freelist;
+
+    while (curr != NULL) {
+        // checks if free and enough space
+        if (curr->in_use == 0 && size <= curr->size) {
+
+            // checks if we need to split
+            if (size + sizeof(m_header) < curr->size) {
+                // create a new section
+                m_header *temp = (m_header *)((char *)curr   // cast to byte, then back
+                                    + sizeof(m_header)     // header size
+                                    + size               // data size
+                                    );
+
+                temp->size = curr->size - size - sizeof(m_header);
+                temp->in_use = 0;
+                temp->next = curr->next;
+                temp->prev = curr;
+
+                if (curr->next != NULL) {
+                    curr->next->prev = temp;
+                }
+
+                curr->next = temp;
+                curr->size = size;
+            }
+            break;
+        }
+        curr = curr->next;
+    }
+
+    if (curr == NULL) {
+        return NULL;
+    }
+
+    curr->in_use = 1;
+    return (void *)((char *)curr + sizeof(m_header)); // ptr of data section
+    
 }
 
 void new_free(void * ptr) {
