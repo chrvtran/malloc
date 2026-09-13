@@ -95,6 +95,25 @@ void new_free(void * ptr) {
     if (ptr == NULL) {
         return;
     }
+    // freeing
     m_header *cur = (m_header *)((char *)ptr - HEADER_SIZE);
     cur->in_use = 0;
+
+    // coalescing next
+    if (cur->next != NULL && cur->next->in_use == 0) {
+        cur->size += HEADER_SIZE + cur->next->size;
+        cur->next = cur->next->next;
+        if (cur->next != NULL) {
+            cur->next->prev = cur;
+        }
+    }
+    // completing proof with coalescing prev
+    if (cur->prev != NULL && cur->prev->in_use == 0) {
+        cur->prev->size += HEADER_SIZE + cur->size;
+        cur->prev->next = cur->next;
+        if (cur->next != NULL) {
+            cur->next->prev = cur->prev;
+        }
+    }
+    return;
 }
